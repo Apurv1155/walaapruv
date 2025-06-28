@@ -45,7 +45,8 @@ jobs:
         run: |
           # Define Android SDK home directory within the runner's home
           ANDROID_SDK_ROOT="${HOME}/android-sdk"
-          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+          # Create the full target directory structure before moving files
+          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
           
           # Download the latest Android Command Line Tools package.
           CMD_TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip"
@@ -60,7 +61,7 @@ jobs:
           unzip -q cmdline-tools.zip -d /tmp/android-clt-temp
 
           # Move the *contents* of the unzipped 'cmdline-tools' folder to the final 'latest' directory.
-          echo "Moving command-line tools to ${ANDROID_SDK_ROOT}/cmdline-tools/latest"
+          echo "Moving contents from /tmp/android-clt-temp/cmdline-tools/ to ${ANDROID_SDK_ROOT}/cmdline-tools/latest/"
           mv /tmp/android-clt-temp/cmdline-tools/* "${ANDROID_SDK_ROOT}/cmdline-tools/latest/"
           rm -rf /tmp/android-clt-temp # Clean up temporary directory
 
