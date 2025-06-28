@@ -1,0 +1,85 @@
+# .github/workflows/apk.yml
+
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main # Or your main development branch where you push your code
+  pull_request:
+    branches:
+      - main # Or your main development branch for pull request validation
+  workflow_dispatch: # Allows manual trigger from GitHub UI, useful for re-runs
+
+jobs:
+  build_android:
+    runs-on: ubuntu-latest # GitHub-hosted runner with Ubuntu Linux, suitable for Buildozer
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4 # Action to clone your repository to the runner
+
+      - name: Set up Buildozer environment
+        # Install system dependencies required by Buildozer and Python-for-Android
+        run: |
+          sudo apt-get update
+          # git, zip, unzip: common archive tools
+          # openjdk-17-jdk: Java Development Kit required for Android SDK tools
+          # python3-pip: Python package installer
+          # libsdl2-dev, libsdl2-image-dev, libsdl2-mixer-dev, libsdl2-ttf-dev: SDL2 development libraries for Kivy
+          # zlib1g-dev: compression library
+          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev zlib1g-dev
+          # Install Buildozer and Kivy via pip
+          pip install --upgrade pip setuptools wheel buildozer kivy
+
+      - name: Cache Buildozer downloads
+        # Caches the .buildozer directory to speed up subsequent builds
+        # This includes downloaded Android SDK, NDK, and Python-for-Android recipes
+        uses: actions/cache@v4
+        with:
+          path: .buildozer # Path to the directory to cache
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }} # Cache key based on OS and buildozer.spec hash
+          restore-keys: |
+            ${{ runner.os }}-buildozer- # Fallback restore keys
+
+      - name: Build Android APK
+        # Execute the Buildozer command to create the Android debug APK
+        run: |
+          buildozer android debug # 'debug' build is for testing, 'release' for app store submission (requires keystore)
+          # For release builds, you would typically use GitHub Secrets for secure keystore management:
+          # echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android_keystore.jks
+          # buildozer android release deploy run --jks android_keystore.jks --keyalias ${{ secrets.KEYSTORE_ALIAS }} --keypass ${{ secrets.KEYSTORE_PASS }} --storepass ${{ secrets.KEYSTORE_PASS }}
+
+      - name: Upload APK artifact
+        # Uploads the generated .apk file as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk # Name of the artifact
+          path: bin/*.apk # Buildozer places the generated APK in the 'bin' directory
+          retention-days: 7 # How long to keep the artifact on GitHub
+
+      - name: Rename and upload AAB (if enabled in buildozer.spec)
+        # Check if an AAB (Android App Bundle) was generated and rename it for clarity
+        # AABs are generated if 'android.aab = True' is set in buildozer.spec
+        id: rename_aab # Add an ID to this step to access its outputs
+        run: |
+          AAB_FILE=$(ls bin/*.aab 2>/dev/null | head -n 1) # Find the AAB file
+          if [ -n "$AAB_FILE" ]; then
+            NEW_AAB_NAME="my-face-recognition-app-${{ github.sha }}.aab" # Create a descriptive name
+            mv "$AAB_FILE" "$NEW_AAB_NAME" # Rename the file
+            echo "Renamed AAB to $NEW_AAB_NAME"
+            echo "aab_file_exists=true" >> "$GITHUB_OUTPUT" # Set output for conditional upload
+          else
+            echo "No AAB file found."
+            echo "aab_file_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+        if: success() # Only run if previous steps succeeded
+
+      - name: Upload AAB artifact
+        # Uploads the generated .aab file as a workflow artifact, if it exists
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab # Name of the artifact
+          path: '*.aab' # Path to the renamed AAB file in the root
+          retention-days: 7 # How long to keep the artifact
+        if: success() && steps.rename_aab.outputs.aab_file_exists == 'true' # Only run if AAB was renamed
