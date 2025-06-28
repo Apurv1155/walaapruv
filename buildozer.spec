@@ -62,8 +62,8 @@ include.patterns = thank_you.mp3,tick.png
 # 'android' will be automatically added when you build for Android.
 extensions =
 
-# (int) The Android SDK version to use. Setting to 36 to align with build-tools;36.0.0 seen in logs.
-android.api = 36
+# (int) The Android SDK version to use. Reverting to 33 for better stability with python-for-android.
+android.api = 33
 
 # (int) The Android NDK version to use. 25b is a stable choice compatible with many APIs.
 android.ndk = 25b
@@ -157,7 +157,7 @@ android.hardware_acceleration = True
 # android.force_system_libs = True
 
 # (str) If you are using OpenGL ES 3.0, uncomment and set this.
-# android.api_level_target = 36
+# android.api_level_target = 33
 
 # (bool) Whether to add additional logging for debugging purposes (recommended for development)
 # android.logcat_filters = *:S python:D
