@@ -62,10 +62,10 @@ include.patterns = thank_you.mp3,tick.png
 # 'android' will be automatically added when you build for Android.
 extensions =
 
-# (int) The Android SDK version to use. API 33 is a good modern choice.
-android.api = 33
+# (int) The Android SDK version to use. Setting to 36 to align with build-tools;36.0.0 seen in logs.
+android.api = 36
 
-# (int) The Android NDK version to use. 25b is compatible with API 33.
+# (int) The Android NDK version to use. 25b is a stable choice compatible with many APIs.
 android.ndk = 25b
 
 # (str) The Android NDK directory (if you want to use a custom one)
@@ -108,8 +108,8 @@ android.features =
 android.enable_multidex = True
 
 # (bool) Forces python-for-android to use old download URLs for some components.
-# This can sometimes resolve issues with downloading specific recipes or SDK parts.
-android.force_old_urls = True
+# Removed as it might cause conflicts and is generally not needed if licenses are handled.
+# android.force_old_urls = True
 
 # (list) Services (experimental)
 # android.services =
@@ -157,7 +157,7 @@ android.hardware_acceleration = True
 # android.force_system_libs = True
 
 # (str) If you are using OpenGL ES 3.0, uncomment and set this.
-# android.api_level_target = 33
+# android.api_level_target = 36
 
 # (bool) Whether to add additional logging for debugging purposes (recommended for development)
 # android.logcat_filters = *:S python:D
