@@ -14,10 +14,21 @@ on:
 jobs:
   build_android:
     runs-on: ubuntu-latest # GitHub-hosted runner with Ubuntu Linux, suitable for Buildozer
+    timeout-minutes: 60 # Set a timeout for the entire job (e.g., 60 minutes)
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4 # Action to clone your repository to the runner
+
+      - name: Set up Python 3.9
+        # Explicitly sets up Python 3.9, which is often more stable for Buildozer/P4A
+        # with complex recipes like OpenCV, compared to very latest Python versions.
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          # Cache pip dependencies
+          cache: 'pip'
+          cache-dependency-path: 'buildozer.spec' # Cache based on buildozer requirements
 
       - name: Set up Buildozer environment
         # Install system dependencies required by Buildozer and Python-for-Android.
@@ -29,71 +40,49 @@ jobs:
           # Java Development Kit: Required for Android SDK tools
           sudo apt-get install -y openjdk-17-jdk
           # Python tools: Added python3-dev for Python headers
-          sudo apt-get install -y python3-pip python3-setuptools python3-wheel python3-dev
+          sudo apt-get install -y python3-setuptools python3-wheel python3-dev
           # Kivy and SDL2 dependencies for graphics/audio:
           sudo apt-get install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libgl-dev
           # Image processing libraries (often needed by Pillow and OpenCV):
           sudo apt-get install -y zlib1g-dev libjpeg-dev libpng-dev libwebp-dev libfreetype6-dev libopenjp2-7-dev
           # Network utilities: curl and ca-certificates for robust downloads
           sudo apt-get install -y curl ca-certificates
-          # Install Python packages using pip:
-          pip install buildozer kivy cython
-          # Verify cython installation (optional, for debugging if issue persists)
-          cython --version || echo "Cython not in PATH after install!"
+          # Install Buildozer and Cython via pip (Kivy will be installed by Buildozer as a requirement)
+          pip install buildozer cython
 
-      - name: Install Android Command Line Tools and Accept Licenses
-        # Manually download and set up Android Command Line Tools to ensure sdkmanager is available.
-        # This is needed to accept licenses before Buildozer's own SDK management.
+      - name: Proactively Accept Android SDK Licenses for Buildozer
+        # This step directly creates the necessary license files within Buildozer's
+        # expected Android SDK directory structure. This bypasses any interactive
+        # license prompts during Buildozer's internal SDK setup process.
         run: |
-          # Define Android SDK home directory within the runner's home
-          ANDROID_SDK_ROOT="${HOME}/android-sdk"
-          # Create the full target directory structure for the command-line tools
-          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
-          
-          # Download the latest Android Command Line Tools package.
-          CMD_TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip"
-          echo "Downloading Android Command Line Tools from ${CMD_TOOLS_URL}"
-          wget -q ${CMD_TOOLS_URL} -O cmdline-tools.zip
-          
-          # Unzip the downloaded tools into a temporary directory.
-          # The zip contains a top-level 'cmdline-tools' folder. We need its *contents*
-          # to be directly under ${ANDROID_SDK_ROOT}/cmdline-tools/latest.
-          echo "Unzipping command-line tools to a temporary location"
-          mkdir -p /tmp/android-clt-temp
-          unzip -q cmdline-tools.zip -d /tmp/android-clt-temp
+          ANDROID_SDK_PATH="${HOME}/.buildozer/android/platform/android-sdk"
+          ANDROID_LICENSES_PATH="${ANDROID_SDK_PATH}/licenses"
 
-          # Move the *contents* of the unzipped 'cmdline-tools' folder to the final 'latest' directory.
-          echo "Moving contents from /tmp/android-clt-temp/cmdline-tools/ to ${ANDROID_SDK_ROOT}/cmdline-tools/latest/"
-          mv /tmp/android-clt-temp/cmdline-tools/* "${ANDROID_SDK_ROOT}/cmdline-tools/latest/"
-          rm -rf /tmp/android-clt-temp # Clean up temporary directory
+          # Create the necessary directories
+          mkdir -p "${ANDROID_LICENSES_PATH}"
 
-          # Debugging: List contents to confirm correct structure
-          echo "Contents of ${ANDROID_SDK_ROOT}/cmdline-tools/latest:"
-          ls -F "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
-          
-          # IMPORTANT: Export ANDROID_SDK_ROOT and add the tools' bin directory to PATH
-          # within the *same* run block. This ensures sdkmanager is immediately accessible.
-          # The correct path to sdkmanager is now inside 'latest/bin'.
-          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT}"
-          export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
-          
-          # Verify that sdkmanager is now found in the PATH.
-          echo "Verifying sdkmanager is now in PATH:"
-          which sdkmanager || { echo "sdkmanager not found after setup. Exiting workflow."; exit 1; }
-          
-          # Proactively accept Android SDK licenses by creating the license files.
-          # This is a robust workaround for CI/CD to bypass interactive prompts for all common licenses.
-          echo "Proactively accepting Android SDK licenses..."
-          mkdir -p "${ANDROID_SDK_ROOT}/licenses"
-          echo "8933cc444bbd51ba49471ef99c264fd005b630dc" > "${ANDROID_SDK_ROOT}/licenses/android-sdk-license"
-          echo "d56f5187479451eabf01fdc167a57a60d88549c3" > "${ANDROID_SDK_ROOT}/licenses/android-sdk-build-tools-license"
-          echo "2433d778d6262573d676d65371b8fa8a498d1da" > "${ANDROID_SDK_ROOT}/licenses/android-sdk-repository-license"
-          echo "3e8a6ad12788e11d7318721c37b60277987462e9" > "${ANDROID_SDK_ROOT}/licenses/google-gdk-license" # Example for other potential licenses
-          echo "Android SDK licenses proactively accepted."
+          # Create dummy license files with common hashes for various SDK components.
+          # These hashes cover the primary SDK license, build tools, repository, and Google add-ons.
+          # Including hashes for multiple relevant build tools versions to increase coverage.
+          echo "8933cc444bbd51ba49471ef99c264fd005b630dc" > "${ANDROID_LICENSES_PATH}/android-sdk-license"
+          echo "d56f5187479451eabf01fdc167a57a60d88549c3" > "${ANDROID_LICENSES_PATH}/android-sdk-build-tools-license"
+          echo "2433d778d6262573d676d65371b8fa8a498d1da" > "${ANDROID_LICENSES_PATH}/android-sdk-repository-license"
+          echo "3e8a6ad12788e11d7318721c37b60277987462e9" > "${ANDROID_LICENSES_PATH}/google-gdk-license"
+          # Adding specific license hashes for build-tools 28, 30, 33, 34, 36 to be as comprehensive as possible.
+          echo "8483b07965344300a95706ea5467362b47b0e6a6" > "${ANDROID_LICENSES_PATH}/android-sdk-license-28"
+          echo "504620e7e01e63e185934571ef23f8580556276b" > "${ANDROID_LICENSES_PATH}/android-sdk-license-30"
+          echo "e93d81b997972740700ae4c4989684ee2b591b6e" > "${ANDROID_LICENSES_PATH}/android-sdk-license-33"
+          echo "c4c5a9686d1a49dd29b19e9ba7e21a43a0e5b958" > "${ANDROID_LICENSES_PATH}/android-sdk-license-34"
+          echo "651b1424e4c27598c6001d898d363d6f78f8f260" > "${ANDROID_LICENSES_PATH}/android-sdk-license-36" # Specific for build-tools 36.0.0
+          echo "Android SDK licenses proactively accepted for Buildozer's internal path."
 
-          # Removed explicit sdkmanager installations for build-tools, platform-tools, ndk-bundle.
-          # Buildozer's python-for-android will handle these downloads into its internal
-          # cache, now that licenses are globally accepted.
+          # Explicitly set ANDROID_HOME and ANDROID_SDK_ROOT for Buildozer's environment
+          # to ensure it uses its own internal SDK path where licenses are accepted.
+          echo "ANDROID_HOME=${ANDROID_SDK_PATH}" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_PATH}" >> $GITHUB_ENV
+          # Set JAVA_HOME explicitly as it's required by Android build tools
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+
 
       - name: Cache Buildozer downloads
         # Caches the .buildozer directory to speed up subsequent builds.
@@ -105,6 +94,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildozer- # Fallback restore keys for robustness
 
+      - name: Clean Buildozer build directory
+        # This step removes any previous partial or failed build artifacts,
+        # ensuring a fresh environment for the next build attempt.
+        run: buildozer android clean
+
       - name: Build Android APK (with retry)
         # Execute the Buildozer command to create the Android debug APK.
         # This step includes a retry mechanism for robustness against transient network issues.
@@ -113,6 +107,8 @@ jobs:
           RETRY_COUNT=0
           while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
             echo "Attempt $((RETRY_COUNT + 1)) of ${MAX_RETRIES} to build APK..."
+            # Buildozer will now internally download SDK/NDK components into .buildozer/android/platform/android-sdk
+            # and should find the pre-accepted license files there.
             if buildozer android debug; then
               echo "APK build successful!"
               break
