@@ -84,6 +84,13 @@ jobs:
           yes | sdkmanager --licenses
           echo "Android SDK licenses accepted successfully."
 
+          # Explicitly install platform-tools and a specific version of build-tools.
+          # This is critical as `sdkmanager --licenses` only accepts licenses, it doesn't install.
+          # Using a known stable build-tools version (e.g., 33.0.0) for API 33 compatibility.
+          echo "Installing Android SDK Platform-Tools and Build-Tools 33.0.0..."
+          yes | sdkmanager "platform-tools" "build-tools;33.0.0"
+          echo "Android SDK Platform-Tools and Build-Tools installed."
+
       - name: Cache Buildozer downloads
         # Caches the .buildozer directory to speed up subsequent builds.
         # This includes downloaded Android SDK, NDK, and Python-for-Android recipes.
