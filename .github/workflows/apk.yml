@@ -20,66 +20,78 @@ jobs:
         uses: actions/checkout@v4 # Action to clone your repository to the runner
 
       - name: Set up Buildozer environment
-        # Install system dependencies required by Buildozer and Python-for-Android
+        # Install system dependencies required by Buildozer and Python-for-Android.
+        # This list is comprehensive to cover common build requirements for Kivy/OpenCV apps.
         run: |
           sudo apt-get update
-          # git, zip, unzip: common archive tools
-          # openjdk-17-jdk: Java Development Kit required for Android SDK tools
-          # python3-pip: Python package installer
-          # libsdl2-dev, libsdl2-image-dev, libsdl2-mixer-dev, libsdl2-ttf-dev: SDL2 development libraries for Kivy
-          # zlib1g-dev: compression library
-          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev zlib1g-dev
-          # Install Buildozer, Kivy, and now Cython via pip
-          pip install --upgrade pip setuptools wheel buildozer kivy cython
+          # Core build tools:
+          sudo apt-get install -y build-essential git zip unzip pkg-config
+          # Java Development Kit: Required for Android SDK tools
+          sudo apt-get install -y openjdk-17-jdk
+          # Python tools:
+          sudo apt-get install -y python3-pip python3-setuptools python3-wheel
+          # Kivy and SDL2 dependencies for graphics/audio:
+          sudo apt-get install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libgl-dev
+          # Image processing libraries (often needed by Pillow and OpenCV):
+          sudo apt-get install -y zlib1g-dev libjpeg-dev libpng-dev libwebp-dev libfreetype6-dev libopenjp2-7-dev
+          # Install Python packages using pip:
+          # `pip install --upgrade pip` is good practice but not strictly needed after `python3-pip` install.
+          pip install buildozer kivy cython
+          # Verify cython installation (optional, for debugging if issue persists)
+          cython --version || echo "Cython not in PATH after install!"
 
       - name: Cache Buildozer downloads
-        # Caches the .buildozer directory to speed up subsequent builds
-        # This includes downloaded Android SDK, NDK, and Python-for-Android recipes
+        # Caches the .buildozer directory to speed up subsequent builds.
+        # This includes downloaded Android SDK, NDK, and Python-for-Android recipes.
         uses: actions/cache@v4
         with:
           path: .buildozer # Path to the directory to cache
           key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }} # Cache key based on OS and buildozer.spec hash
           restore-keys: |
-            ${{ runner.os }}-buildozer- # Fallback restore keys
+            ${{ runner.os }}-buildozer- # Fallback restore keys for robustness
 
       - name: Build Android APK
-        # Execute the Buildozer command to create the Android debug APK
+        # Execute the Buildozer command to create the Android debug APK.
         run: |
-          buildozer android debug # 'debug' build is for testing, 'release' for app store submission (requires keystore)
+          # The `buildozer android debug` command will download SDK/NDK and compile the app.
+          # It's crucial that all dependencies are met before this step.
+          buildozer android debug
           # For release builds, you would typically use GitHub Secrets for secure keystore management:
           # echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android_keystore.jks
           # buildozer android release deploy run --jks android_keystore.jks --keyalias ${{ secrets.KEYSTORE_ALIAS }} --keypass ${{ secrets.KEYSTORE_PASS }} --storepass ${{ secrets.KEYSTORE_PASS }}
 
       - name: Upload APK artifact
-        # Uploads the generated .apk file as a workflow artifact
+        # Uploads the generated .apk file as a workflow artifact, making it downloadable.
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk # Name of the artifact
+          name: android-apk # Name of the artifact for easy identification
           path: bin/*.apk # Buildozer places the generated APK in the 'bin' directory
-          retention-days: 7 # How long to keep the artifact on GitHub
+          retention-days: 7 # How long the artifact will be stored on GitHub
 
       - name: Rename and upload AAB (if enabled in buildozer.spec)
-        # Check if an AAB (Android App Bundle) was generated and rename it for clarity
-        # AABs are generated if 'android.aab = True' is set in buildozer.spec
-        id: rename_aab # Add an ID to this step to access its outputs
+        # Check if an AAB (Android App Bundle) was generated and rename it for clarity.
+        # AABs are generated if 'android.aab = True' is set in buildozer.spec.
+        id: rename_aab # Add an ID to this step to access its outputs for conditional upload
         run: |
-          AAB_FILE=$(ls bin/*.aab 2>/dev/null | head -n 1) # Find the AAB file
+          # Look for any .aab file in the bin directory
+          AAB_FILE=$(ls bin/*.aab 2>/dev/null | head -n 1)
           if [ -n "$AAB_FILE" ]; then
-            NEW_AAB_NAME="my-face-recognition-app-${{ github.sha }}.aab" # Create a descriptive name
+            # Construct a new, more descriptive name including the commit SHA
+            NEW_AAB_NAME="my-face-recognition-app-${{ github.sha }}.aab"
             mv "$AAB_FILE" "$NEW_AAB_NAME" # Rename the file
             echo "Renamed AAB to $NEW_AAB_NAME"
-            echo "aab_file_exists=true" >> "$GITHUB_OUTPUT" # Set output for conditional upload
+            echo "aab_file_exists=true" >> "$GITHUB_OUTPUT" # Signal that an AAB exists
           else
             echo "No AAB file found."
-            echo "aab_file_exists=false" >> "$GITHUB_OUTPUT"
+            echo "aab_file_exists=false" >> "$GITHUB_OUTPUT" # Signal that no AAB exists
           fi
-        if: success() # Only run if previous steps succeeded
+        if: success() # Only run this step if previous steps succeeded
 
       - name: Upload AAB artifact
-        # Uploads the generated .aab file as a workflow artifact, if it exists
+        # Uploads the generated .aab file as a workflow artifact, if it exists.
         uses: actions/upload-artifact@v4
         with:
           name: android-aab # Name of the artifact
-          path: '*.aab' # Path to the renamed AAB file in the root
-          retention-days: 7 # How long to keep the artifact
-        if: success() && steps.rename_aab.outputs.aab_file_exists == 'true' # Only run if AAB was renamed
+          path: '*.aab' # Path to the renamed AAB file in the root of the runner's workspace
+          retention-days: 7 # How long the artifact will be stored on GitHub
+        if: success() && steps.rename_aab.outputs.aab_file_exists == 'true' # Only run if AAB was found and renamed
