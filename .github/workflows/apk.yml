@@ -1,164 +1,47 @@
-# .github/workflows/apk.yml
-
-name: Build Android APK
+name: Android APK Build
 
 on:
   push:
-    branches:
-      - main # Or your main development branch where you push your code
-  pull_request:
-    branches:
-      - main # Or your main development branch for pull request validation
-  workflow_dispatch: # Allows manual trigger from GitHub UI, useful for re-runs
+    branches: [main]
 
 jobs:
-  build_android:
-    runs-on: ubuntu-latest # GitHub-hosted runner with Ubuntu Linux, suitable for Buildozer
-    timeout-minutes: 60 # Set a timeout for the entire job (e.g., 60 minutes)
+  build:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4 # Action to clone your repository to the runner
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Set up Python 3.9
-        # Explicitly sets up Python 3.9, which is often more stable for Buildozer/P4A
-        # with complex recipes like OpenCV, compared to very latest Python versions.
-        uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
-          # Cache pip dependencies
-          cache: 'pip'
-          cache-dependency-path: 'buildozer.spec' # Cache based on buildozer requirements
+          python-version: "3.10"
 
-      - name: Set up Buildozer environment
-        # Install system dependencies required by Buildozer and Python-for-Android.
-        # This list is comprehensive to cover common build requirements for Kivy/OpenCV apps.
+      - name: Install system dependencies
         run: |
-          sudo apt-get update
-          # Core build tools:
-          sudo apt-get install -y build-essential git zip unzip pkg-config
-          # Java Development Kit: Required for Android SDK tools
-          sudo apt-get install -y openjdk-17-jdk
-          # Python tools: Added python3-dev for Python headers
-          sudo apt-get install -y python3-setuptools python3-wheel python3-dev
-          # Kivy and SDL2 dependencies for graphics/audio:
-          sudo apt-get install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libgl-dev
-          # Image processing libraries (often needed by Pillow and OpenCV):
-          sudo apt-get install -y zlib1g-dev libjpeg-dev libpng-dev libwebp-dev libfreetype6-dev libopenjp2-7-dev
-          # Network utilities: curl and ca-certificates for robust downloads
-          sudo apt-get install -y curl ca-certificates
-          # Install Buildozer and Cython via pip (Kivy will be installed by Buildozer as a requirement)
-          pip install buildozer cython
+          sudo apt update
+          sudo apt install -y zip unzip openjdk-17-jdk python3-pip libffi-dev libssl-dev libsqlite3-dev zlib1g-dev libncurses5 git
 
-      - name: Proactively Accept Android SDK Licenses for Buildozer
-        # This step directly creates the necessary license files within Buildozer's
-        # expected Android SDK directory structure. This bypasses any interactive
-        # license prompts during Buildozer's internal SDK setup process.
+      - name: Install Buildozer
         run: |
-          ANDROID_SDK_PATH="${HOME}/.buildozer/android/platform/android-sdk"
-          ANDROID_LICENSES_PATH="${ANDROID_SDK_PATH}/licenses"
+          pip install --upgrade pip
+          pip install cython
+          pip install buildozer
 
-          # Create the necessary directories
-          mkdir -p "${ANDROID_LICENSES_PATH}"
-
-          # Create dummy license files with common hashes for various SDK components.
-          # These hashes cover the primary SDK license, build tools, repository, and Google add-ons.
-          # Including hashes for multiple relevant build tools versions to increase coverage.
-          echo "8933cc444bbd51ba49471ef99c264fd005b630dc" > "${ANDROID_LICENSES_PATH}/android-sdk-license"
-          echo "d56f5187479451eabf01fdc167a57a60d88549c3" > "${ANDROID_LICENSES_PATH}/android-sdk-build-tools-license"
-          echo "2433d778d6262573d676d65371b8fa8a498d1da" > "${ANDROID_LICENSES_PATH}/android-sdk-repository-license"
-          echo "3e8a6ad12788e11d7318721c37b60277987462e9" > "${ANDROID_LICENSES_PATH}/google-gdk-license"
-          # Adding specific license hashes for build-tools 28, 30, 33, 34, 36 to be as comprehensive as possible.
-          echo "8483b07965344300a95706ea5467362b47b0e6a6" > "${ANDROID_LICENSES_PATH}/android-sdk-license-28"
-          echo "504620e7e01e63e185934571ef23f8580556276b" > "${ANDROID_LICENSES_PATH}/android-sdk-license-30"
-          echo "e93d81b997972740700ae4c4989684ee2b591b6e" > "${ANDROID_LICENSES_PATH}/android-sdk-license-33"
-          echo "c4c5a9686d1a49dd29b19e9ba7e21a43a0e5b958" > "${ANDROID_LICENSES_PATH}/android-sdk-license-34"
-          echo "651b1424e4c27598c6001d898d363d6f78f8f260" > "${ANDROID_LICENSES_PATH}/android-sdk-license-36" # Specific for build-tools 36.0.0
-          echo "Android SDK licenses proactively accepted for Buildozer's internal path."
-
-          # Explicitly set ANDROID_HOME and ANDROID_SDK_ROOT for Buildozer's environment
-          # to ensure it uses its own internal SDK path where licenses are accepted.
-          echo "ANDROID_HOME=${ANDROID_SDK_PATH}" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_PATH}" >> $GITHUB_ENV
-          # Set JAVA_HOME explicitly as it's required by Android build tools
-          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
-
-
-      - name: Cache Buildozer downloads
-        # Caches the .buildozer directory to speed up subsequent builds.
-        # This includes downloaded Android SDK, NDK, and Python-for-Android recipes.
-        uses: actions/cache@v4
-        with:
-          path: .buildozer # Path to the directory to cache
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }} # Cache key based on OS and buildozer.spec hash
-          restore-keys: |
-            ${{ runner.os }}-buildozer- # Fallback restore keys for robustness
-
-      - name: Clean Buildozer build directory
-        # This step removes any previous partial or failed build artifacts,
-        # ensuring a fresh environment for the next build attempt.
-        run: buildozer android clean
-
-      - name: Build Android APK (with retry)
-        # Execute the Buildozer command to create the Android debug APK.
-        # This step includes a retry mechanism for robustness against transient network issues.
+      - name: Check OpenCV Files
         run: |
-          MAX_RETRIES=3
-          RETRY_COUNT=0
-          while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
-            echo "Attempt $((RETRY_COUNT + 1)) of ${MAX_RETRIES} to build APK..."
-            # Buildozer will now internally download SDK/NDK components into .buildozer/android/platform/android-sdk
-            # and should find the pre-accepted license files there.
-            if buildozer android debug; then
-              echo "APK build successful!"
-              break
-            else
-              RETRY_COUNT=$((RETRY_COUNT + 1))
-              if [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; then
-                echo "Build failed. Retrying in 10 seconds..."
-                sleep 10 # Wait before retrying
-              else
-                echo "Build failed after ${MAX_RETRIES} attempts. Exiting."
-                exit 1 # Fail the workflow if all retries are exhausted
-              fi
-            fi
-          done
-          # For release builds, you would typically use GitHub Secrets for secure keystore management:
-          # echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android_keystore.jks
-          # buildozer android release deploy run --jks android_keystore.jks --keyalias ${{ secrets.KEYSTORE_ALIAS }} --keypass ${{ secrets.KEYSTORE_PASS }} --storepass ${{ secrets.KEYSTORE_PASS }}
+          test -f libs/opencv-android.jar
+          test -f libs/armeabi-v7a/libopencv_java4.so
+          test -f libs/arm64-v8a/libopencv_java4.so
 
-      - name: Upload APK artifact
-        # Uploads the generated .apk file as a workflow artifact, making it downloadable.
+      - name: Build APK
+        run: |
+          set -e
+          buildozer android clean
+          buildozer android debug
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk # Name of the artifact for easy identification
-          path: bin/*.apk # Buildozer places the generated APK in the 'bin' directory
-          retention-days: 7 # How long the artifact will be stored on GitHub
-
-      - name: Rename and upload AAB (if enabled in buildozer.spec)
-        # Check if an AAB (Android App Bundle) was generated and rename it for clarity.
-        # AABs are generated if 'android.aab = True' is set in buildozer.spec.
-        id: rename_aab # Add an ID to this step to access its outputs for conditional upload
-        run: |
-          # Look for any .aab file in the bin directory
-          AAB_FILE=$(ls bin/*.aab 2>/dev/null | head -n 1)
-          if [ -n "$AAB_FILE" ]; then
-            # Construct a new, more descriptive name including the commit SHA
-            NEW_AAB_NAME="my-face-recognition-app-${{ github.sha }}.aab"
-            mv "$AAB_FILE" "$NEW_AAB_NAME" # Rename the file
-            echo "Renamed AAB to $NEW_AAB_NAME"
-            echo "aab_file_exists=true" >> "$GITHUB_OUTPUT" # Signal that an AAB exists
-          else
-            echo "No AAB file found."
-            echo "aab_file_exists=false" >> "$GITHUB_OUTPUT" # Signal that no AAB exists
-          fi
-        if: success() # Only run this step if previous steps succeeded
-
-      - name: Upload AAB artifact
-        # Uploads the generated .aab file as a workflow artifact, if it exists.
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-aab # Name of the artifact
-          path: '*.aab' # Path to the renamed AAB file in the root of the runner's workspace
-          retention-days: 7 # How long the artifact will be stored on GitHub
-        if: success() && steps.rename_aab.outputs.aab_file_exists == 'true' # Only run if AAB was found and renamed
+          name: myapp-apk
+          path: bin/*.apk
