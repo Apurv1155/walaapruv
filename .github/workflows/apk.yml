@@ -86,11 +86,10 @@ jobs:
           yes | sdkmanager --licenses
           echo "Android SDK licenses accepted successfully."
 
-          # Explicitly install platform-tools and a specific version of build-tools.
+          # Explicitly install platform-tools and the requested version of build-tools (36.0.0).
           # This is critical as `sdkmanager --licenses` only accepts licenses, it doesn't install.
-          # Using a known stable build-tools version (e.g., 33.0.0) for API 33 compatibility.
-          echo "Installing Android SDK Platform-Tools and Build-Tools 33.0.0..."
-          yes | sdkmanager "platform-tools" "build-tools;33.0.0"
+          echo "Installing Android SDK Platform-Tools and Build-Tools 36.0.0..."
+          yes | sdkmanager "platform-tools" "build-tools;36.0.0"
           echo "Android SDK Platform-Tools and Build-Tools installed."
 
       - name: Cache Buildozer downloads
