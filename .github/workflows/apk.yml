@@ -47,7 +47,7 @@ jobs:
         run: |
           # Define Android SDK home directory within the runner's home
           ANDROID_SDK_ROOT="${HOME}/android-sdk"
-          # Create the full target directory structure before moving files
+          # Create the full target directory structure for the command-line tools
           mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
           
           # Download the latest Android Command Line Tools package.
@@ -81,15 +81,17 @@ jobs:
           echo "Verifying sdkmanager is now in PATH:"
           which sdkmanager || { echo "sdkmanager not found after setup. Exiting workflow."; exit 1; }
           
-          # Accept Android SDK licenses.
-          echo "Accepting Android SDK licenses..."
-          yes | sdkmanager --licenses
-          echo "Android SDK licenses accepted successfully."
+          # Proactively accept Android SDK licenses by creating the license file.
+          # This is a common workaround for CI/CD to bypass interactive prompts.
+          echo "Proactively accepting Android SDK licenses..."
+          mkdir -p "${ANDROID_SDK_ROOT}/licenses"
+          echo "8933cc444bbd51ba49471ef99c264fd005b630dc" > "${ANDROID_SDK_ROOT}/licenses/android-sdk-license"
+          echo "Android SDK licenses accepted."
 
           # Explicitly install platform-tools and the requested version of build-tools (36.0.0).
-          # This is critical as `sdkmanager --licenses` only accepts licenses, it doesn't install.
+          # This is critical as `sdkmanager --licenses` only accepts licenses, it doesn't install missing components.
           echo "Installing Android SDK Platform-Tools and Build-Tools 36.0.0..."
-          yes | sdkmanager "platform-tools" "build-tools;36.0.0"
+          yes | sdkmanager "platform-tools" "build-tools;36.0.0" "ndk-bundle" # Added ndk-bundle to ensure NDK is present for build tools
           echo "Android SDK Platform-Tools and Build-Tools installed."
 
       - name: Cache Buildozer downloads
