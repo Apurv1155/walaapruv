@@ -35,10 +35,17 @@ jobs:
           # Image processing libraries (often needed by Pillow and OpenCV):
           sudo apt-get install -y zlib1g-dev libjpeg-dev libpng-dev libwebp-dev libfreetype6-dev libopenjp2-7-dev
           # Install Python packages using pip:
-          # `pip install --upgrade pip` is good practice but not strictly needed after `python3-pip` install.
           pip install buildozer kivy cython
           # Verify cython installation (optional, for debugging if issue persists)
           cython --version || echo "Cython not in PATH after install!"
+
+      - name: Accept Android SDK licenses
+        # This step is crucial for CI builds. It accepts all required Android SDK licenses,
+        # allowing `sdkmanager` (used by Buildozer internally) to download and install
+        # necessary components like build-tools. Without this, the build will fail
+        # due to license prompts.
+        run: |
+          yes | sdkmanager --licenses
 
       - name: Cache Buildozer downloads
         # Caches the .buildozer directory to speed up subsequent builds.
@@ -52,9 +59,9 @@ jobs:
 
       - name: Build Android APK
         # Execute the Buildozer command to create the Android debug APK.
+        # The `buildozer android debug` command will download SDK/NDK and compile the app.
+        # It's crucial that all dependencies are met before this step.
         run: |
-          # The `buildozer android debug` command will download SDK/NDK and compile the app.
-          # It's crucial that all dependencies are met before this step.
           buildozer android debug
           # For release builds, you would typically use GitHub Secrets for secure keystore management:
           # echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android_keystore.jks
