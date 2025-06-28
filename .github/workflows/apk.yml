@@ -1,47 +1,42 @@
-name: Android APK Build
-
+name: CI
 on:
   push:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+uses: actions/checkout@v2
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      used to cache dependencies with a timeout
+name: Get Date
+        id: get-date
+        run: |
+          echo "::set-output name=date::$(/bin/date -u "+%Y%m%d")"
+        shell: bash
+
+name: Cache Buildozer global directory
+        uses: actions/cache@v2
         with:
-          python-version: "3.10"
+          path: .buildozer_global
+          key: buildozer-global-${{ hashFiles('buildozer.spec') }} # Replace with your path
 
-      - name: Install system dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y zip unzip openjdk-17-jdk python3-pip libffi-dev libssl-dev libsqlite3-dev zlib1g-dev libncurses5 git
-
-      - name: Install Buildozer
-        run: |
-          pip install --upgrade pip
-          pip install cython
-          pip install buildozer
-
-      - name: Check OpenCV Files
-        run: |
-          test -f libs/opencv-android.jar
-          test -f libs/armeabi-v7a/libopencv_java4.so
-          test -f libs/arm64-v8a/libopencv_java4.so
-
-      - name: Build APK
-        run: |
-          set -e
-          buildozer android clean
-          buildozer android debug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+uses: actions/cache@v2
         with:
-          name: myapp-apk
-          path: bin/*.apk
+          path: .buildozer
+          key: ${{ runner.os }}-${{ steps.get-date.outputs.date }}-${{ hashFiles('buildozer.spec') }}
+
+name: Build with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
+        with:
+          command: buildozer android debug
+          buildozer_version: stable
+
+name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: package
+          path: ${{ steps.buildozer.outputs.filename }}
