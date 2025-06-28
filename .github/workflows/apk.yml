@@ -53,13 +53,22 @@ jobs:
           wget -q ${CMD_TOOLS_URL} -O cmdline-tools.zip
           
           # Unzip the downloaded tools into a 'latest' subdirectory.
+          # The zip often contains a 'cmdline-tools' folder at its root, so the actual binaries
+          # will be inside 'latest/cmdline-tools/bin'.
           echo "Unzipping command-line tools into ${ANDROID_SDK_ROOT}/cmdline-tools/latest"
           unzip -q cmdline-tools.zip -d "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
+
+          # Debugging: List contents to confirm structure
+          echo "Contents of ${ANDROID_SDK_ROOT}/cmdline-tools/latest:"
+          ls -F "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
+          echo "Contents of ${ANDROID_SDK_ROOT}/cmdline-tools/latest/cmdline-tools:"
+          ls -F "${ANDROID_SDK_ROOT}/cmdline-tools/latest/cmdline-tools"
           
           # IMPORTANT: Export ANDROID_SDK_ROOT and add the tools' bin directory to PATH
           # within the *same* run block. This ensures sdkmanager is immediately accessible.
+          # Corrected path to sdkmanager: it's inside 'cmdline-tools/latest/cmdline-tools/bin'
           export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT}"
-          export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
+          export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/cmdline-tools/bin:${PATH}"
           
           # Verify that sdkmanager is now found in the PATH.
           echo "Verifying sdkmanager is now in PATH:"
