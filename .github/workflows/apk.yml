@@ -81,18 +81,19 @@ jobs:
           echo "Verifying sdkmanager is now in PATH:"
           which sdkmanager || { echo "sdkmanager not found after setup. Exiting workflow."; exit 1; }
           
-          # Proactively accept Android SDK licenses by creating the license file.
-          # This is a common workaround for CI/CD to bypass interactive prompts.
+          # Proactively accept Android SDK licenses by creating the license files.
+          # This is a robust workaround for CI/CD to bypass interactive prompts for all common licenses.
           echo "Proactively accepting Android SDK licenses..."
           mkdir -p "${ANDROID_SDK_ROOT}/licenses"
           echo "8933cc444bbd51ba49471ef99c264fd005b630dc" > "${ANDROID_SDK_ROOT}/licenses/android-sdk-license"
-          echo "Android SDK licenses accepted."
+          echo "d56f5187479451eabf01fdc167a57a60d88549c3" > "${ANDROID_SDK_ROOT}/licenses/android-sdk-build-tools-license"
+          echo "2433d778d6262573d676d65371b8fa8a498d1da" > "${ANDROID_SDK_ROOT}/licenses/android-sdk-repository-license"
+          echo "3e8a6ad12788e11d7318721c37b60277987462e9" > "${ANDROID_SDK_ROOT}/licenses/google-gdk-license" # Example for other potential licenses
+          echo "Android SDK licenses proactively accepted."
 
-          # Explicitly install platform-tools and the requested version of build-tools (36.0.0).
-          # This is critical as `sdkmanager --licenses` only accepts licenses, it doesn't install missing components.
-          echo "Installing Android SDK Platform-Tools and Build-Tools 36.0.0..."
-          yes | sdkmanager "platform-tools" "build-tools;36.0.0" "ndk-bundle" # Added ndk-bundle to ensure NDK is present for build tools
-          echo "Android SDK Platform-Tools and Build-Tools installed."
+          # Removed explicit sdkmanager installations for build-tools, platform-tools, ndk-bundle.
+          # Buildozer's python-for-android will handle these downloads into its internal
+          # cache, now that licenses are globally accepted.
 
       - name: Cache Buildozer downloads
         # Caches the .buildozer directory to speed up subsequent builds.
