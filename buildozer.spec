@@ -107,6 +107,10 @@ android.features =
 # (bool) Add a notification service (experimental). Essential for larger apps.
 android.enable_multidex = True
 
+# (bool) Forces python-for-android to use old download URLs for some components.
+# This can sometimes resolve issues with downloading specific recipes or SDK parts.
+android.force_old_urls = True
+
 # (list) Services (experimental)
 # android.services =
 
@@ -172,8 +176,8 @@ android.hardware_acceleration = True
 # android.extra_args = --enable-debug --with-recipe=opencv:debug
 android.extra_args =
 
-# (int) Log level (0-5). 2 is a good balance for seeing progress and errors.
-log_level = 2
+# (int) Log level (0-5). 5 provides maximum verbose output, crucial for debugging.
+log_level = 5
 
 # (str) Where Buildozer stores its internal files (builds, caches, etc.)
 buildozer.dir = .buildozer
