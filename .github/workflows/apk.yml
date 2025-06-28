@@ -34,6 +34,8 @@ jobs:
           sudo apt-get install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libgl-dev
           # Image processing libraries (often needed by Pillow and OpenCV):
           sudo apt-get install -y zlib1g-dev libjpeg-dev libpng-dev libwebp-dev libfreetype6-dev libopenjp2-7-dev
+          # Network utilities: curl and ca-certificates for robust downloads
+          sudo apt-get install -y curl ca-certificates
           # Install Python packages using pip:
           pip install buildozer kivy cython
           # Verify cython installation (optional, for debugging if issue persists)
@@ -101,11 +103,28 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildozer- # Fallback restore keys for robustness
 
-      - name: Build Android APK
+      - name: Build Android APK (with retry)
         # Execute the Buildozer command to create the Android debug APK.
-        # With licenses accepted and SDK tools in PATH, Buildozer should now proceed smoothly.
+        # This step includes a retry mechanism for robustness against transient network issues.
         run: |
-          buildozer android debug
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+          while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
+            echo "Attempt $((RETRY_COUNT + 1)) of ${MAX_RETRIES} to build APK..."
+            if buildozer android debug; then
+              echo "APK build successful!"
+              break
+            else
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; then
+                echo "Build failed. Retrying in 10 seconds..."
+                sleep 10 # Wait before retrying
+              else
+                echo "Build failed after ${MAX_RETRIES} attempts. Exiting."
+                exit 1 # Fail the workflow if all retries are exhausted
+              fi
+            fi
+          done
           # For release builds, you would typically use GitHub Secrets for secure keystore management:
           # echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android_keystore.jks
           # buildozer android release deploy run --jks android_keystore.jks --keyalias ${{ secrets.KEYSTORE_ALIAS }} --keypass ${{ secrets.KEYSTORE_PASS }} --storepass ${{ secrets.KEYSTORE_PASS }}
