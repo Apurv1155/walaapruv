@@ -62,7 +62,7 @@ include.patterns = thank_you.mp3,tick.png
 # 'android' will be automatically added when you build for Android.
 extensions =
 
-# (int) The Android SDK version to use. Reverting to 33 for better stability with python-for-android.
+# (int) The Android SDK version to use. Setting to 33 for better stability with python-for-android.
 android.api = 33
 
 # (int) The Android NDK version to use. 25b is a stable choice compatible with many APIs.
