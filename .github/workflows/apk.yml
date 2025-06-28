@@ -28,8 +28,8 @@ jobs:
           sudo apt-get install -y build-essential git zip unzip pkg-config
           # Java Development Kit: Required for Android SDK tools
           sudo apt-get install -y openjdk-17-jdk
-          # Python tools:
-          sudo apt-get install -y python3-pip python3-setuptools python3-wheel
+          # Python tools: Added python3-dev for Python headers
+          sudo apt-get install -y python3-pip python3-setuptools python3-wheel python3-dev
           # Kivy and SDL2 dependencies for graphics/audio:
           sudo apt-get install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libgl-dev
           # Image processing libraries (often needed by Pillow and OpenCV):
@@ -48,28 +48,24 @@ jobs:
           mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
           
           # Download the latest Android Command Line Tools package.
-          # This URL is for the latest stable version as of this update.
           CMD_TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip"
           echo "Downloading Android Command Line Tools from ${CMD_TOOLS_URL}"
-          # Use wget to download the zip file quietly (-q) and save it as cmdline-tools.zip (-O)
           wget -q ${CMD_TOOLS_URL} -O cmdline-tools.zip
           
           # Unzip the downloaded tools into a 'latest' subdirectory.
-          # Modern Android SDK structure requires tools to be within cmdline-tools/latest/.
           echo "Unzipping command-line tools into ${ANDROID_SDK_ROOT}/cmdline-tools/latest"
           unzip -q cmdline-tools.zip -d "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
           
-          # Export ANDROID_SDK_ROOT and add the tools' bin directory to PATH.
-          # These environment variables make `sdkmanager` accessible for subsequent commands.
-          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}" >> $GITHUB_ENV
-          echo "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          # IMPORTANT: Export ANDROID_SDK_ROOT and add the tools' bin directory to PATH
+          # within the *same* run block. This ensures sdkmanager is immediately accessible.
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT}"
+          export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
           
           # Verify that sdkmanager is now found in the PATH.
           echo "Verifying sdkmanager is now in PATH:"
           which sdkmanager || { echo "sdkmanager not found after setup. Exiting workflow."; exit 1; }
           
           # Accept Android SDK licenses.
-          # The 'yes |' pipes 'y' to the sdkmanager, automatically accepting all prompts.
           echo "Accepting Android SDK licenses..."
           yes | sdkmanager --licenses
           echo "Android SDK licenses accepted successfully."
