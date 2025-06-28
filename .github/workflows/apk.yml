@@ -29,8 +29,8 @@ jobs:
           # libsdl2-dev, libsdl2-image-dev, libsdl2-mixer-dev, libsdl2-ttf-dev: SDL2 development libraries for Kivy
           # zlib1g-dev: compression library
           sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev zlib1g-dev
-          # Install Buildozer and Kivy via pip
-          pip install --upgrade pip setuptools wheel buildozer kivy
+          # Install Buildozer, Kivy, and now Cython via pip
+          pip install --upgrade pip setuptools wheel buildozer kivy cython
 
       - name: Cache Buildozer downloads
         # Caches the .buildozer directory to speed up subsequent builds
